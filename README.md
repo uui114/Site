@@ -1,110 +1,163 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>Roblox 使用者查詢 - 顯示正在玩什麼</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f4f4f4; }
-    input, button { padding: 12px; font-size: 18px; margin: 10px; }
-    #result { margin-top: 40px; padding: 20px; background: white; border-radius: 10px; max-width: 600px; margin-left: auto; margin-right: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    img { width: 180px; border-radius: 50%; border: 4px solid #00b0f0; }
-    .game-link { color: #00b0f0; text-decoration: none; font-weight: bold; }
-    .game-link:hover { text-decoration: underline; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>彈球填滿螢幕</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            height: 100%;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(255,255,255,0.7);
+            font-family: Arial, sans-serif;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
 </head>
 <body>
-  <h1>Roblox 使用者查詢</h1>
-  <p>輸入 Roblox 使用者名稱，查看基本資料與正在玩的遊戲</p>
-  
-  <input type="text" id="username" placeholder="例如: Builderman 或你的帳號" style="width: 300px;" />
-  <button onclick="searchUser()">查詢</button>
+    <div id="info">球數量: <span id="count">1</span></div>
+    <canvas id="canvas"></canvas>
 
-  <div id="result"></div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const countEl = document.getElementById('count');
 
-  <script>
-    async function searchUser() {
-      const usernameInput = document.getElementById('username').value.trim();
-      if (!usernameInput) return alert('請輸入 Roblox 使用者名稱');
+        let balls = [];
+        let width, height;
 
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = '<p>查詢中，請稍候...</p>';
-
-      try {
-        // 1. 用 username 取得 User ID
-        const idRes = await fetch('https://users.roblox.com/v1/usernames/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [usernameInput], excludeBannedUsers: false })
-        });
-        const idData = await idRes.json();
-
-        if (!idData.data || idData.data.length === 0) {
-          resultDiv.innerHTML = `<p style="color:red;">找不到這個使用者名稱</p>`;
-          return;
-        }
-
-        const userId = idData.data[0].id;
-
-        // 2. 取得使用者基本資料
-        const userRes = await fetch(`https://users.roblox.com/v1/users/${userId}`);
-        const user = await userRes.json();
-
-        // 3. 取得 Presence（正在玩什麼）
-        const presenceRes = await fetch('https://presence.roblox.com/v1/presence/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userIds: [userId] })
-        });
-        const presenceData = await presenceRes.json();
-        const presence = presenceData.userPresences && presenceData.userPresences[0];
-
-        let presenceHTML = '';
-        if (presence) {
-          const type = presence.userPresenceType;
-          let status = '離線';
-          let gameInfo = '';
-
-          if (type === 0) status = '離線';
-          else if (type === 1) status = '線上（不在遊戲中）';
-          else if (type === 2 || type === 3) {
-            status = '正在玩遊戲';
-            if (presence.placeId) {
-              const placeRes = await fetch(`https://games.roblox.com/v1/places/${presence.placeId}`);
-              const place = await placeRes.json();
-              const gameName = place.name || '未知遊戲';
-              const gameUrl = `https://www.roblox.com/games/${presence.placeId}`;
-              gameInfo = `<br><strong>遊戲名稱：</strong> <a href="\( {gameUrl}" target="_blank" class="game-link"> \){gameName}</a>`;
+        class Ball {
+            constructor(x, y, vx, vy, radius, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.radius = radius;
+                this.color = color;
             }
-          } else {
-            status = '其他狀態';
-          }
 
-          presenceHTML = `
-            <p><strong>目前狀態：</strong> ${status}</p>
-            ${gameInfo}
-            ${presence.lastLocation ? `<p><strong>位置：</strong> ${presence.lastLocation}</p>` : ''}
-          `;
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 撞邊界時反彈 + 分裂成兩顆
+                let split = false;
+
+                if (this.x - this.radius <= 0 || this.x + this.radius >= width) {
+                    this.vx = -this.vx * 0.98; // 輕微能量損失
+                    this.x = Math.max(this.radius, Math.min(width - this.radius, this.x));
+                    split = true;
+                }
+
+                if (this.y - this.radius <= 0 || this.y + this.radius >= height) {
+                    this.vy = -this.vy * 0.98;
+                    this.y = Math.max(this.radius, Math.min(height - this.radius, this.y));
+                    split = true;
+                }
+
+                if (split && balls.length < 800) {  // 限制最大數量避免卡死
+                    // 分裂成兩顆，速度隨機微調
+                    const newVx = this.vx * (0.8 + Math.random() * 0.6);
+                    const newVy = this.vy * (0.8 + Math.random() * 0.6);
+
+                    balls.push(new Ball(
+                        this.x,
+                        this.y,
+                        newVx + (Math.random() - 0.5) * 2,
+                        newVy + (Math.random() - 0.5) * 2,
+                        this.radius * 0.95,  // 稍微變小一點
+                        `hsl(${Math.random()*360}, 90%, 65%)`
+                    ));
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
         }
 
-        // 顯示所有結果
-        resultDiv.innerHTML = `
-          <img src="https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=180&height=180&format=png" alt="頭像">
-          <h2>\( {user.displayName} (@ \){user.name})</h2>
-          <p><strong>User ID：</strong> ${userId}</p>
-          <p><strong>描述：</strong> ${user.description || '無描述'}</p>
-          <p><strong>創建日期：</strong> ${new Date(user.created).toLocaleDateString('zh-TW')}</p>
-          ${presenceHTML}
-        `;
-      } catch (err) {
-        resultDiv.innerHTML = `<p style="color:red;">發生錯誤，請稍後再試或檢查網路</p>`;
-        console.error(err);
-      }
-    }
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
 
-    // 按 Enter 也可以查詢
-    document.getElementById('username').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') searchUser();
-    });
-  </script>
+        function createInitialBall() {
+            const radius = 18;
+            const x = width / 2;
+            const y = height / 3;
+            const speed = 4.5;
+
+            balls = [];
+            balls.push(new Ball(
+                x, y,
+                (Math.random() - 0.5) * speed * 2,
+                speed * 0.8,
+                radius,
+                `hsl(${Math.random()*360}, 90%, 65%)`
+            ));
+        }
+
+        function animate() {
+            // 半透明黑色背景，產生拖尾效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].update();
+                balls[i].draw();
+            }
+
+            countEl.textContent = balls.length;
+            requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        window.addEventListener('resize', () => {
+            resize();
+        });
+
+        // 點擊畫面可手動加入一顆球（可選）
+        canvas.addEventListener('click', (e) => {
+            const radius = 12 + Math.random() * 10;
+            balls.push(new Ball(
+                e.clientX,
+                e.clientY,
+                (Math.random() - 0.5) * 8,
+                (Math.random() - 0.5) * 8,
+                radius,
+                `hsl(${Math.random()*360}, 90%, 65%)`
+            ));
+        });
+
+        // 啟動
+        resize();
+        createInitialBall();
+        animate();
+
+        // 防止手機滾動
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    </script>
 </body>
 </html>
