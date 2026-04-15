@@ -1,230 +1,165 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<title>Mini Games</title>
-
-<style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:white;
-  overflow:hidden;
-}
-
-/* 主畫面 */
-#menu{
-  height:100vh;
-  overflow-y:auto;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding-top:80px;
-}
-
-/* 右上角代碼框 */
-#codeBox{
-  position:fixed;
-  top:20px;
-  right:20px;
-  display:flex;
-  gap:10px;
-  z-index:999;
-}
-
-#codeInput{
-  border:3px solid black;
-  font-size:18px;
-  padding:10px;
-}
-
-#codeBox button{
-  border:3px solid black;
-  background:white;
-  font-size:18px;
-  padding:10px 15px;
-  cursor:pointer;
-}
-
-/* 主畫面按鈕 */
-.gameBtn{
-  width:90%;
-  height:33vh;
-  margin:20px;
-  font-size:6vw;
-  border:5px solid black;
-  background:white;
-  border-radius:25px;
-  cursor:pointer;
-}
-
-.locked{
-  opacity:0.4;
-}
-
-/* 遊戲畫面 */
-#game{
-  display:none;
-  height:100vh;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-}
-
-/* 標題 */
-h1{
-  font-size:60px;
-  margin:20px;
-}
-
-/* 進度條 */
-#barBox{
-  width:70%;
-  height:50px;
-  border:5px solid black;
-}
-
-#bar{
-  height:100%;
-  width:50%;
-  background:white;
-}
-
-/* 按鈕 */
-.clickBtn{
-  width:300px;
-  height:300px;
-  margin-top:60px;
-  border:5px solid black;
-  background:white;
-  font-size:40px;
-  cursor:pointer;
-}
-
-/* GIF */
-#gif{
-  display:none;
-  width:100%;
-  height:100vh;
-  object-fit:contain;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>打字變旋轉3D文字</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a1f;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            color: white;
+        }
+        #scene {
+            perspective: 1200px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #textContainer {
+            transform-style: preserve-3d;
+            font-size: 4.5vw;
+            font-weight: bold;
+            text-shadow: 
+                0 0 20px #ff00ff,
+                0 0 40px #00ffff,
+                0 0 60px #ffff00;
+            transition: transform 0.05s linear;
+            white-space: pre;
+            text-align: center;
+            padding: 20px;
+            max-width: 90%;
+        }
+        #inputArea {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 12px 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            width: 80%;
+            max-width: 500px;
+        }
+        input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 18px;
+            outline: none;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        button {
+            padding: 10px 16px;
+            margin-left: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
 </head>
-
 <body>
+    <div id="controls">
+        <button onclick="clearText()">清除文字</button>
+    </div>
 
-<!-- 右上角代碼 -->
-<div id="codeBox">
-  <input id="codeInput" placeholder="Enter Code">
-  <button onclick="checkCode()">OK</button>
-</div>
+    <div id="scene">
+        <div id="textContainer">開始打字吧...</div>
+    </div>
 
-<!-- 主畫面 -->
-<div id="menu">
-  <button class="gameBtn" onclick="startGame()">SAVE THE CAT!!!</button>
-  <button class="gameBtn">COMING SOON</button>
-  <button id="level3Btn" class="gameBtn locked" onclick="startLevel3()">🔒 LEVEL 3</button>
-</div>
+    <div id="inputArea">
+        <input type="text" id="input" placeholder="在這裡打字..." autocomplete="off" autofocus>
+    </div>
 
-<!-- 遊戲 -->
-<div id="game">
-  <h1>SAVE THE CAT!!!</h1>
-  <div id="barBox"><div id="bar"></div></div>
-  <button class="clickBtn" onclick="addProgress()">CLICK ME</button>
-</div>
+    <script>
+        const textContainer = document.getElementById('textContainer');
+        const input = document.getElementById('input');
+        let currentText = '';
+        let rotationX = 0;
+        let rotationY = 0;
+        let targetRotX = 15;
+        let targetRotY = 30;
 
-<img id="gif">
+        function update3DText() {
+            currentText = input.value || '開始打字吧...';
+            
+            // 逐字包 span 增加打字動畫感
+            let html = '';
+            for (let char of currentText) {
+                if (char === ' ') {
+                    html += '<span style="display:inline-block;width:0.6em;"> </span>';
+                } else {
+                    html += `<span style="display:inline-block; transition: transform 0.4s;">${char}</span>`;
+                }
+            }
+            textContainer.innerHTML = html || '開始打字吧...';
+        }
 
-<script>
+        function animateRotation() {
+            // 自動緩慢旋轉
+            rotationY += 0.35;           // Y軸持續旋轉
+            rotationX = Math.sin(Date.now() / 2000) * 12 + targetRotX; // X軸輕微呼吸擺動
 
-let progress = 50;
-let drain;
-let level3Unlocked = localStorage.getItem("level3Unlocked")==="true";
+            textContainer.style.transform = 
+                `rotateX(\( {rotationX}deg) rotateY( \){rotationY}deg) scale(1)`;
+            
+            requestAnimationFrame(animateRotation);
+        }
 
-/* 更新第三關 */
-function updateLevel3(){
-  if(level3Unlocked){
-    const btn=document.getElementById("level3Btn");
-    btn.classList.remove("locked");
-    btn.innerText="LEVEL 3";
-  }
-}
-updateLevel3();
+        // 即時打字更新
+        input.addEventListener('input', update3DText);
 
-/* 開始第一關 */
-function startGame(){
-  document.getElementById("menu").style.display="none";
-  document.getElementById("game").style.display="flex";
+        // 按 Enter 清空輸入框（但保留文字）
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                input.value = '';
+                update3DText();
+            }
+        });
 
-  progress=50;
-  updateBar();
+        window.clearText = function() {
+            input.value = '';
+            update3DText();
+        };
 
-  drain=setInterval(()=>{
-    progress-=0.4 + progress/200;
-    updateBar();
-    checkLose();
-  },50);
-}
+        // 初始化
+        update3DText();
+        animateRotation();
 
-/* 點擊增加 */
-function addProgress(){
-  progress+=15;
-  if(progress>100) progress=100;
-  updateBar();
-  if(progress>=100) win();
-}
+        // 滑鼠移動時輕微改變角度（增加互動感）
+        document.addEventListener('mousemove', (e) => {
+            const xPercent = (e.clientX / window.innerWidth) - 0.5;
+            const yPercent = (e.clientY / window.innerHeight) - 0.5;
+            targetRotX = 15 + yPercent * 25;
+            targetRotY = 30 + xPercent * 40;
+        });
 
-/* 更新條 */
-function updateBar(){
-  document.getElementById("bar").style.width=progress+"%";
-}
-
-/* 勝利 */
-function win(){
-  clearInterval(drain);
-  showGif("https://media1.tenor.com/m/7aod08iYQuMAAAAC/mane-im-dead.gif");
-}
-
-/* 失敗 */
-function checkLose(){
-  if(progress<=0){
-    clearInterval(drain);
-    showGif("https://media.tenor.com/ioyb8tciIyQAAAAi/cat-explode-cat-meme.gif");
-  }
-}
-
-/* 顯示GIF */
-function showGif(src){
-  document.getElementById("game").style.display="none";
-  let gif=document.getElementById("gif");
-  gif.src=src;
-  gif.style.display="block";
-
-  setTimeout(()=>{
-    gif.style.display="none";
-    document.getElementById("menu").style.display="flex";
-  },5000);
-}
-
-/* 代碼解鎖 */
-function checkCode(){
-  if(document.getElementById("codeInput").value==="ihatesixseven!!!"){
-    level3Unlocked=true;
-    localStorage.setItem("level3Unlocked",true);
-    updateLevel3();
-    alert("LEVEL 3 UNLOCKED!");
-  }
-}
-
-/* 第三關 */
-function startLevel3(){
-  if(!level3Unlocked){
-    alert("Locked!");
-    return;
-  }
-  alert("Level 3 coming soon 😈");
-}
-
-</script>
+        // 手機觸控支援
+        let touchStartX = 0;
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) {
+                const deltaX = (e.touches[0].clientX - touchStartX) * 0.2;
+                targetRotY += deltaX;
+                touchStartX = e.touches[0].clientX;
+            }
+        }, { passive: true });
+    </script>
 </body>
 </html>
