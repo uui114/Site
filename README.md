@@ -59,14 +59,14 @@
 
     <div id="scare">
         <div id="scare-text">do you hear the whistle?</div>
-        <div style="margin-top: 40px; font-size: 24px;">快跑！</div>
+        <div style="margin-top: 40px; font-size: 24px;">RUN！</div>
     </div>
 
     <script>
         // 頁面載入後立即彈出輸入框
         window.onload = function() {
             setTimeout(() => {
-                const answer = prompt("do you hear the whistle");
+                const answer = prompt("do you hear the whistle?");
 
                 // 不管輸入什麼，都觸發驚嚇效果
                 if (answer !== null) {
