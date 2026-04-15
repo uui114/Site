@@ -58,7 +58,7 @@
 <body>
 
     <div id="scare">
-        <div id="scare-text">你聽到哨聲了嗎？</div>
+        <div id="scare-text">do you hear the whistle?</div>
         <div style="margin-top: 40px; font-size: 24px;">快跑！</div>
     </div>
 
@@ -66,7 +66,7 @@
         // 頁面載入後立即彈出輸入框
         window.onload = function() {
             setTimeout(() => {
-                const answer = prompt("你聽到哨聲了嗎？");
+                const answer = prompt("do you hear the whistle");
 
                 // 不管輸入什麼，都觸發驚嚇效果
                 if (answer !== null) {
@@ -94,9 +94,9 @@
                     // 結束後顯示最終畫面
                     scareDiv.innerHTML = `
                         <div style="font-size: 60px; color: #ff0000; text-shadow: 0 0 30px #fff;">
-                            你聽到了
+                            you hear it
                         </div>
-                        <div style="margin-top: 30px; font-size: 28px;">現在輪到我了...</div>
+                        <div style="margin-top: 30px; font-size: 28px;">...</div>
                     `;
                 }
             }, 180);
